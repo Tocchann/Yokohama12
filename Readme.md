@@ -49,7 +49,7 @@ m_targetPath = dlg.GetPathName();
 CProgressDlg dlg;
 auto task = concurrency::create_task( [&]()
 {
-    return ountCharInFile( dlg, m_targetPath, m_numbers );
+    return CountCharInFile( dlg, m_targetPath, m_numbers );
 } ).then( [&]( bool result )
 {
     dlg.PostMessage( WM_CLOSE );
