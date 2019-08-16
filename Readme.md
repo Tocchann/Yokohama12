@@ -5,7 +5,7 @@
 参考資料:[Codezine連載「Windowsアプリケーションで「処理中」を表現する」](https://codezine.jp/article/corner/384)
 
 ~~~cpp
-// ファイルのバイトデータの出現数を数える関数
+// ファイルのバイトデータの出現数を数える関数(内容は全く変わりません)
 bool CountCharInFile(
     class CProgressDlg& dlg,
     LPCTSTR filePath,
@@ -13,51 +13,38 @@ bool CountCharInFile(
 ~~~
 古のUIスレッドオンリーパターン(抜粋)
 ~~~cpp
-// CString m_targetPath;
-CFileDialog dlg( TRUE, nullptr, m_targetPath,
-                OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT,
-                _T("すべてのファイル|*.*||"), this );
-if( dlg.DoModal() != IDOK )
+void CSampleDlg::OnOK()
 {
-    return;
+    // いろいろ前処理
+    CProgressDlg dlg;
+    dlg.Create();
+    // std::map<char,size_t> m_numbers;
+    if( CountCharInFile( dlg, m_targetPath, m_numbers ) )
+    {
+        // 画面を更新
+    }
+    dlg.CloseWindow();
 }
-m_targetPath = dlg.GetPathName();
-CProgressDlg dlg;
-dlg.Create();
-// std::map<char,size_t> m_numbers;
-if( CountCharInFile( dlg, m_targetPath, m_numbers ) )
-{
-    // 画面を更新
-}
-else
-{
-    // キャンセル処理
-}
-dlg.CloseWindow();
 ~~~
 タスクを使った非同期処理
 ~~~cpp
-// CString m_targetPath;
-CFileDialog dlg( TRUE, nullptr, m_targetPath,
-                OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT,
-                _T("すべてのファイル|*.*||"), this );
-if( dlg.DoModal() != IDOK )
+void CSampleDlg::OnOK()
 {
-    return;
-}
-m_targetPath = dlg.GetPathName();
-CProgressDlg dlg;
-auto task = concurrency::create_task( [&]()
-{
-    return CountCharInFile( dlg, m_targetPath, m_numbers );
-} ).then( [&]( bool result )
-{
-    dlg.PostMessage( WM_CLOSE );
-    return result;
-} );
-dlg.DoModal();
-if( task.get() )
-{
-    // 画面更新
+    // いろいろ前処理
+    CProgressDlg dlg;
+    auto task = concurrency::create_task( [&]()
+    {
+        return CountCharInFile( dlg, m_targetPath, m_numbers );
+    } ).then( [&]( bool result )
+    {
+        dlg.PostMessage( WM_CLOSE );
+        return result;
+    } );
+    dlg.DoModal();
+    if( task.get() )
+    {
+        // 画面更新
+    }
 }
 ~~~
+移行のキモは CProgressDlg の実装にあったりします。そこは当日のお楽しみ？ｗ
