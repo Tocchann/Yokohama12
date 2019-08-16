@@ -6,6 +6,7 @@
 
 ~~~cpp
 // ファイルのバイトデータの出現数を数える関数(内容は全く変わりません)
+// 画像の色数を数えることにする。画像はGDI+で読み取り
 bool CountCharInFile(
     class CProgressDlg& dlg,
     LPCTSTR filePath,
@@ -18,8 +19,7 @@ void CSampleDlg::OnOK()
     // いろいろ前処理
     CProgressDlg dlg;
     dlg.Create();
-    // std::map<char,size_t> m_numbers;
-    if( CountCharInFile( dlg, m_targetPath, m_numbers ) )
+    if( CountCharInFile( dlg, m_targetPath, m_numColors ) )
     {
         // 画面を更新
     }
@@ -34,7 +34,7 @@ void CSampleDlg::OnOK()
     CProgressDlg dlg;
     auto task = concurrency::create_task( [&]()
     {
-        return CountCharInFile( dlg, m_targetPath, m_numbers );
+        return CountCharInFile( dlg, m_targetPath, m_numColors );
     } ).then( [&]( bool result )
     {
         dlg.PostMessage( WM_CLOSE );
