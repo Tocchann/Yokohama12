@@ -97,6 +97,8 @@ BOOL CSampleAsyncWorkDlg::OnInitDialog()
 	m_countListCtrl.SetExtendedStyle( LVS_EX_FULLROWSELECT|LVS_EX_AUTOSIZECOLUMNS );
 	m_countListCtrl.InsertColumn( 0, _T( "色" ), LVCFMT_RIGHT );
 	m_countListCtrl.InsertColumn( 1, _T( "出現数" ), LVCFMT_RIGHT );
+	m_countListCtrl.SetColumnWidth( 0, LVSCW_AUTOSIZE_USEHEADER );
+	m_countListCtrl.SetColumnWidth( 1, LVSCW_AUTOSIZE_USEHEADER );
 	//
 	//	デコーダが対応するフィルター一覧を作る(GDI+が対応するものは全部...なんだけど、なぜメタ系まで取り出せてしまうのか。。。)
 	//
@@ -157,6 +159,10 @@ void CSampleAsyncWorkDlg::OnClickedButtonSelTargetpath()
 		UpdateData( FALSE );
 	}
 }
+#define CodeVer_Prot  0
+#define CodeVer_Prot2 1
+#define ExecVer CodeVer_Prot2
+
 static void APIENTRY CountColors( CListCtrl& lc, LPCTSTR imagePath, std::map<COLORREF, size_t>& numColors )
 {
 	CWaitCursor wait;
@@ -164,12 +170,13 @@ static void APIENTRY CountColors( CListCtrl& lc, LPCTSTR imagePath, std::map<COL
 	lc.DeleteAllItems();
 	numColors.clear();
 
+#if ExecVer == CodeVer_Prot
 	LVITEM item{};
 	item.mask = LVIF_PARAM|LVIF_TEXT;
 	item.cchTextMax = 0;
 	item.pszText = LPSTR_TEXTCALLBACK;	//	テキストデータはその都度生成する(メモリイメージ省略のため)
-
-	//	ファイルから読み込む(できればフルカラーがいいけどどうなってるかわかんねーんだよなぁ。。。)
+#endif
+	//	ファイルから読み込む
 	Gdiplus::Bitmap bmp( imagePath );
 
 	Gdiplus::BitmapData bmpData;
@@ -185,7 +192,6 @@ static void APIENTRY CountColors( CListCtrl& lc, LPCTSTR imagePath, std::map<COL
 			for( UINT xPos = 0 ; xPos < bmpData.Width ; xPos++ )
 			{
 				auto itr = numColors.find( lineTop[xPos] );
-				int index = -1;
 				if( itr != numColors.end() )
 				{
 					itr->second += 1;
@@ -193,15 +199,43 @@ static void APIENTRY CountColors( CListCtrl& lc, LPCTSTR imagePath, std::map<COL
 				else
 				{
 					numColors[lineTop[xPos]] = 1;
+#if ExecVer == CodeVer_Prot
 					item.lParam = lineTop[xPos];
-					lc.InsertItem( &item );	//	積極的に更新はしない
+					int index = lc.InsertItem( &item );	//	積極的に更新はしない
+					if( index >= 0 )
+					{
+						item.iItem = index+1;
+					}
+#endif
 				}
 			}
 		}
 		bmp.UnlockBits( &bmpData );
 	}
-	lc.SetColumnWidth( 0, LVSCW_AUTOSIZE );
-	lc.SetColumnWidth( 1, LVSCW_AUTOSIZE );
+#if ExecVer == CodeVer_Prot2
+	lc.SetItemCount( numColors.size() );
+	LVITEM item{};
+	item.mask = LVIF_PARAM|LVIF_TEXT;
+	item.cchTextMax = 0;
+	item.pszText = LPSTR_TEXTCALLBACK;	//	テキストデータはその都度生成する(メモリイメージ省略のため)
+	lc.SetRedraw( FALSE );
+	for( const auto& numCol : numColors )
+	{
+		item.lParam = numCol.first;
+		item.iItem = lc.InsertItem( &item );
+		if( item.iItem >= 0 )
+		{
+			item.iItem++;
+		}
+		else
+		{
+			break;	//	色が追加できなくなった時点であきらめる
+		}
+	}
+	lc.SetRedraw( TRUE );
+#endif
+	lc.SetColumnWidth( 0, LVSCW_AUTOSIZE_USEHEADER );
+	lc.SetColumnWidth( 1, LVSCW_AUTOSIZE_USEHEADER );
 	lc.Invalidate( TRUE );
 }
 void CSampleAsyncWorkDlg::OnOK()
@@ -230,7 +264,7 @@ void CSampleAsyncWorkDlg::OnGetdispinfoListCount( NMHDR* pNMHDR, LRESULT* pResul
 		switch( pDispInfo->item.iSubItem )
 		{
 		case 0:	wsprintf( pDispInfo->item.pszText, _T( "0x%08X" ), pDispInfo->item.lParam );	break;
-		case 1:	wsprintf( pDispInfo->item.pszText, _T( "0x%08X" ), m_numColors[pDispInfo->item.lParam] );	break;
+		case 1:	wsprintf( pDispInfo->item.pszText, _T( "%u64" ), m_numColors[static_cast<COLORREF>( pDispInfo->item.lParam) ] );	break;
 		}
 	}
 	*pResult = 0;
