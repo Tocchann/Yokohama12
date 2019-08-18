@@ -159,10 +159,23 @@ void CSampleAsyncWorkDlg::OnClickedButtonSelTargetpath()
 		UpdateData( FALSE );
 	}
 }
-#define CodeVer_Prot  0
+#define CodeVer_Prot1 0
 #define CodeVer_Prot2 1
-#define ExecVer CodeVer_Prot2
+#define CodeVer_Prot3 2
+#define ExecVer CodeVer_Prot3
 
+static BOOL APIENTRY PumpMessage()
+{
+	MSG msg;
+	while( ::PeekMessage( &msg, nullptr, 0, 0, PM_NOREMOVE ) )
+	{
+		if( !AfxPumpMessage() )
+		{
+			return FALSE;	// WM_QUITが来た(やばいんだけど。。。ｗ)
+		}
+	}
+	return TRUE;
+}
 static void APIENTRY CountColors( CListCtrl& lc, LPCTSTR imagePath, std::map<COLORREF, size_t>& numColors )
 {
 	CWaitCursor wait;
@@ -170,7 +183,7 @@ static void APIENTRY CountColors( CListCtrl& lc, LPCTSTR imagePath, std::map<COL
 	lc.DeleteAllItems();
 	numColors.clear();
 
-#if ExecVer == CodeVer_Prot
+#if ExecVer == CodeVer_Prot1 || ExecVer == CodeVer_Prot3
 	LVITEM item{};
 	item.mask = LVIF_PARAM|LVIF_TEXT;
 	item.cchTextMax = 0;
@@ -189,6 +202,12 @@ static void APIENTRY CountColors( CListCtrl& lc, LPCTSTR imagePath, std::map<COL
 		for( UINT yLine = 0 ; yLine < bmpData.Height ; yLine++ )
 		{
 			const COLORREF* lineTop = reinterpret_cast<const COLORREF*>( imageTop + bmpData.Stride * yLine );
+#if ExecVer == CodeVer_Prot3
+			if( !PumpMessage() )
+			{
+				return;	//	WM_QUIT だって！？
+			}
+#endif
 			for( UINT xPos = 0 ; xPos < bmpData.Width ; xPos++ )
 			{
 				auto itr = numColors.find( lineTop[xPos] );
@@ -199,7 +218,7 @@ static void APIENTRY CountColors( CListCtrl& lc, LPCTSTR imagePath, std::map<COL
 				else
 				{
 					numColors[lineTop[xPos]] = 1;
-#if ExecVer == CodeVer_Prot
+#if ExecVer == CodeVer_Prot1 || ExecVer == CodeVer_Prot3
 					item.lParam = lineTop[xPos];
 					int index = lc.InsertItem( &item );	//	積極的に更新はしない
 					if( index >= 0 )
