@@ -121,26 +121,31 @@ BOOL CSampleAsyncWorkDlg::OnInitDialog()
 			AfxThrowMemoryException();
 		}
 		Gdiplus::GetImageDecoders( num, size, pCodecInfo );
-		CString allExts;
+		CString filterStrings;
+		m_imageFilter = _T( "All Image Files|" );
+		bool firstTime = true;
 		for( UINT index = 0 ; index < num ; ++index )
 		{
 			const auto& codec = pCodecInfo[index];
 			//	ビットマップでロードするのでサポートしているものしか対応しない
 			if( codec.Flags & Gdiplus::ImageCodecFlagsSupportBitmap )
 			{
-				m_imageFilter += pCodecInfo[index].FormatDescription;
-				m_imageFilter += _T( '|' );
-				if( !allExts.IsEmpty() )
+				filterStrings += _T( '|' );
+				filterStrings += pCodecInfo[index].FormatDescription;
+				filterStrings += _T( '|' );
+				if( firstTime )
 				{
-					allExts += _T( ';' );
+					firstTime = false;
 				}
-				allExts += pCodecInfo[index].FilenameExtension;
+				else
+				{
+					m_imageFilter += _T( ';' );
+				}
 				m_imageFilter += pCodecInfo[index].FilenameExtension;
-				m_imageFilter += _T( '|' );
+				filterStrings += pCodecInfo[index].FilenameExtension;
 			}
 		}
-		m_imageFilter += _T( "All Image Files|" );
-		m_imageFilter += allExts;
+		m_imageFilter += filterStrings;
 		m_imageFilter += _T( "||" );
 		free( pCodecInfo );
 	}
