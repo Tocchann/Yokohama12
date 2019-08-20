@@ -34,6 +34,7 @@ CProgressDlg::CProgressDlg(CWnd* pParent /*=nullptr*/)
 	, m_pos( 0 )
 {
 	_ASSERTE( m_pParentWnd != nullptr );	//	親ウィンドウは強制で指定してもらう
+	m_exitWork.reset();
 }
 CProgressDlg::~CProgressDlg()
 {
@@ -49,6 +50,7 @@ void CProgressDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control( pDX, IDC_PROGRESS, m_progress );
 }
 BEGIN_MESSAGE_MAP(CProgressDlg, CDialog)
+	ON_BN_CLICKED( IDC_BUTTON_CANCEL, &CProgressDlg::OnClickedButtonCancel )
 END_MESSAGE_MAP()
 
 BOOL CProgressDlg::Create()
@@ -71,13 +73,22 @@ BOOL CProgressDlg::Create()
 INT_PTR CProgressDlg::DoModal()
 {
 	m_modalMode = true;
+
 	return __super::DoModal();
+}
+void CProgressDlg::ExitWork()
+{
+	m_exitWork.set();
+	if( m_progress.m_hWnd != nullptr )
+	{
+		PostMessage( WM_CLOSE );
+	}
 }
 bool CProgressDlg::IsCancel()
 {
-	if( m_progress.m_hWnd != nullptr )
+	if( !m_modalMode )
 	{
-		if( !m_modalMode )
+		if( m_progress.m_hWnd != nullptr )
 		{
 			//	ポンプが FALSE を返す == WM_QUIT 何だが。。。
 			if( !PumpMessage() )
@@ -167,6 +178,7 @@ int CProgressDlg::StepIt()
 	}
 	return result;
 }
+
 // CProgressDlg メッセージ ハンドラー
 BOOL CProgressDlg::OnInitDialog()
 {
@@ -184,9 +196,9 @@ BOOL CProgressDlg::OnInitDialog()
 	}
 	return TRUE;
 }
-void CProgressDlg::OnCancel()
+void CProgressDlg::OnClickedButtonCancel()
 {
-	GetDlgItem( IDCANCEL )->EnableWindow( FALSE );	//	状態遷移したことを見せておく(本当はこの後ダイアログ内はWaitCursor にするといい感じになる)
+	GetDlgItem( IDC_BUTTON_CANCEL )->EnableWindow( FALSE );	//	状態遷移したことを見せておく(本当はこの後ダイアログ内はWaitCursor にするといい感じになる)
 	//	キャンセルを行うので通知をセット
 	m_cts.cancel();
 }

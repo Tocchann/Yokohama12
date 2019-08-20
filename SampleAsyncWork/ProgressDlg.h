@@ -4,6 +4,8 @@
 // CProgressDlg ダイアログ
 #include <atomic>
 #include <ppl.h>
+#include <concurrent_queue.h>
+
 class CProgressDlg : public CDialog
 {
 	DECLARE_DYNAMIC(CProgressDlg)
@@ -20,6 +22,7 @@ public:
 #endif
 	BOOL Create();
 	virtual INT_PTR DoModal();
+	void ExitWork();
 	//	キャンセルチェック
 	bool IsCancel();
 
@@ -35,7 +38,6 @@ public:
 	int OffsetPos( _In_ int nPos );
 	int SetStep( _In_ int nStep );
 	int StepIt();
-
 private:
 	bool m_modalMode;
 	int m_lower;
@@ -44,6 +46,7 @@ private:
 	std::atomic<int> m_pos;	//	並列処理対応
 	bool m_marqueeMode;
 	concurrency::cancellation_token_source m_cts;
+	concurrency::event m_exitWork;
 
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV サポート
@@ -52,5 +55,5 @@ protected:
 public:
 	CProgressCtrl m_progress;
 	virtual BOOL OnInitDialog();
-	virtual void OnCancel();
+	afx_msg void OnClickedButtonCancel();
 };

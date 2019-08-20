@@ -167,90 +167,111 @@ void CSampleAsyncWorkDlg::OnClickedButtonSelTargetpath()
 	}
 }
 
-
 static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePath, std::map<COLORREF, size_t>& numColors )
 {
-#if ExecVer < CodeVer_SimplePump
-	CWaitCursor wait;
-#endif
-#if ExecVer == CodeVer_ModelessDlg
-	CProgressDlg dlg( pParent );
-	if( !dlg.Create() )	//	無効化
-	{
-		AfxThrowResourceException();	//	リソースありませんエラーでいいでしょう
-	}
-#endif
-	//	初期化処理
-	lc.DeleteAllItems();
-	numColors.clear();
-#if ExecVer == CodeVer_SimplePump || ExecVer == CodeVer_ModelessDlg
-	CProgressDlg::PumpMessage();
-#endif
+	//	InsertItem するときに使う情報(コールバックでテキスト表示するのでデータはLPARAMだけ)
 	LVITEM item{};
 	item.mask = LVIF_PARAM|LVIF_TEXT;
 	//	テキストデータはその都度生成する(メモリイメージ省略のため)
 	item.cchTextMax = 0;
 	item.pszText = LPSTR_TEXTCALLBACK;
-	
-	//	ファイルから読み込む
-	Gdiplus::Bitmap bmp( imagePath );
-	Gdiplus::BitmapData bmpData;
-	if( bmp.LockBits( nullptr, Gdiplus::ImageLockModeRead, PixelFormat32bppARGB, &bmpData ) == Gdiplus::Ok )
+
+	//	メッセージポンプが動かない版
+#if (ExecVer & (ExecMode_Call_PumpMssage|ExecMode_Disp_ProgressDlg)) == 0
+	CWaitCursor wait;
+#endif
+#if ExecVer & ExecMode_Disp_ProgressDlg
+	CProgressDlg dlg( pParent );
+#if (ExecVer & ExecMode_Use_Task) == 0
+	if( !dlg.Create() )	//	無効化
 	{
-		//const COLORREF* imageTop = static_cast<const COLORREF*>( bmpData.Scan0 );
-		const BYTE* imageTop = static_cast<const BYTE*>(bmpData.Scan0);
-		//	色データを個別計算するのは面倒なのでフルカラー画像で取り込むことにする
-		//concurrency::parallel_for( )
-		dlg.SetRange( 0, bmpData.Height );
-		dlg.SetStep( 1 );
-		for( UINT yLine = 0 ; yLine < bmpData.Height ; yLine++ )
-		{
-			const COLORREF* lineTop = reinterpret_cast<const COLORREF*>( imageTop + bmpData.Stride * yLine );
-#if ExecVer == CodeVer_SimplePump
-			if( !CProgressDlg::PumpMessage() )
-			{
-				break;	//	ここでリターンとかシャレにならないんだけど。。。
-			}
-			CWaitCursor wait;
-#elif ExecVer == CodeVer_ModelessDlg
-			dlg.StepIt();
-			if( dlg.IsCancel() )
-			{
-				break;
-			}
-			CWaitCursor wait;
-#endif
-			for( UINT xPos = 0 ; xPos < bmpData.Width ; xPos++ )
-			{
-				auto itr = numColors.find( lineTop[xPos] );
-				if( itr != numColors.end() )
-				{
-					itr->second += 1;
-					LVFINDINFO findInfo;
-					findInfo.flags = LVFI_PARAM;
-					findInfo.lParam = lineTop[xPos];
-					int findNum = lc.FindItem( &findInfo );
-					_ASSERTE( findNum >= 0 );
-					lc.Update( findNum );	//	更新する(ちらつきがすごいと思うけど...)
-				}
-				else
-				{
-					numColors[lineTop[xPos]] = 1;
-#if ExecVer == CodeVer_Prototype || ExecVer == CodeVer_SimplePump || ExecVer == CodeVer_ModelessDlg
-					item.lParam = lineTop[xPos];
-					int index = lc.InsertItem( &item );	//	積極的に更新はしない
-					if( index >= 0 )
-					{
-						item.iItem = index+1;
-					}
-#endif
-				}
-			}
-		}
-		bmp.UnlockBits( &bmpData );
+		AfxThrowResourceException();	//	リソースありませんエラーでいいでしょう
 	}
-#if ExecVer == CodeVer_SepInsert
-	lc.SetItemCount( numColors.size() );
+#endif
+#endif
+
+#if ExecVer & ExecMode_Use_Task
+	auto task = concurrency::create_task( [&]()
+#endif
+	{
+		//	初期化処理
+		lc.DeleteAllItems();
+		numColors.clear();
+#if ExecVer & ExecMode_Call_PumpMssage
+		CProgressDlg::PumpMessage();
+#endif
+		//	ファイルから読み込む
+		Gdiplus::Bitmap bmp( imagePath );
+		Gdiplus::BitmapData bmpData;
+		if( bmp.LockBits( nullptr, Gdiplus::ImageLockModeRead, PixelFormat32bppARGB, &bmpData ) == Gdiplus::Ok )
+		{
+			//const COLORREF* imageTop = static_cast<const COLORREF*>( bmpData.Scan0 );
+			const BYTE* imageTop = static_cast<const BYTE*>(bmpData.Scan0);
+			//	色データを個別計算するのは面倒なのでフルカラー画像で取り込むことにする
+#if ExecVer & ExecMode_Disp_ProgressDlg
+			dlg.SetRange( 0, bmpData.Height );
+			dlg.SetStep( 1 );
+#endif
+			for( UINT yLine = 0 ; yLine < bmpData.Height ; yLine++ )
+			{
+				const COLORREF* lineTop = reinterpret_cast<const COLORREF*>(imageTop + bmpData.Stride * yLine);
+#if ExecVer & ExecMode_Disp_ProgressDlg
+				dlg.StepIt();
+				if( dlg.IsCancel() )
+				{
+					break;
+				}
+#elif ExecVer & ExecMode_Call_PumpMssage
+				if( !CProgressDlg::PumpMessage() )
+				{
+					break;	//	ここでリターンとかシャレにならないんだけど。。。
+				}
+#endif
+#if (ExecVer & ExecMode_Use_Task) == 0
+				CWaitCursor wait;
+#endif
+				for( UINT xPos = 0 ; xPos < bmpData.Width ; xPos++ )
+				{
+					auto itr = numColors.find( lineTop[xPos] );
+					if( itr != numColors.end() )
+					{
+						itr->second += 1;
+#if ExecVer & ExecMode_Sync_InsertItem
+						LVFINDINFO findInfo;
+						findInfo.flags = LVFI_PARAM;
+						findInfo.lParam = lineTop[xPos];
+						int findNum = lc.FindItem( &findInfo );
+						_ASSERTE( findNum >= 0 );
+						lc.Update( findNum );	//	更新する
+#endif
+					}
+					else
+					{
+						numColors[lineTop[xPos]] = 1;
+#if ExecVer & ExecMode_Sync_InsertItem
+						item.lParam = lineTop[xPos];
+						int index = lc.InsertItem( &item );	//	積極的に更新はしない
+						if( index >= 0 )
+						{
+							item.iItem = index+1;
+						}
+#endif
+					}
+				}
+			}
+			bmp.UnlockBits( &bmpData );
+		}
+	}
+#if ExecVer & ExecMode_Use_Task
+	).then( [&]( )
+	{
+		dlg.ExitWork();
+	} );
+	dlg.DoModal();
+	task.wait();	//	ここで同期化して終了待機してないと破綻する
+#endif
+#if (ExecVer & ExecMode_Sync_InsertItem) == 0
+	lc.SetItemCount( static_cast<int>( numColors.size() ) );
 	lc.SetRedraw( FALSE );
 	for( const auto& numCol : numColors )
 	{
@@ -270,9 +291,8 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
 	lc.SetColumnWidth( 0, LVSCW_AUTOSIZE_USEHEADER );
 	lc.SetColumnWidth( 1, LVSCW_AUTOSIZE_USEHEADER );
 	lc.Invalidate( TRUE );
-#if ExecVer == CodeVer_ModelessDlg
-	dlg.DestroyWindow();
-	//	裏に隠れてしまうのはなぜ？
+#if (ExecVer & (ExecMode_Disp_ProgressDlg|ExecMode_Call_PumpMssage)) == (ExecMode_Disp_ProgressDlg|ExecMode_Call_PumpMssage)
+	dlg.ExitWork();
 #endif
 }
 
