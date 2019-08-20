@@ -7,6 +7,8 @@
 #include "SampleAsyncWork.h"
 #include "SampleAsyncWorkDlg.h"
 
+#include "ProgressDlg.h"
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -100,7 +102,7 @@ BOOL CSampleAsyncWorkDlg::OnInitDialog()
 	m_countListCtrl.SetColumnWidth( 0, LVSCW_AUTOSIZE_USEHEADER );
 	m_countListCtrl.SetColumnWidth( 1, LVSCW_AUTOSIZE_USEHEADER );
 	//
-	//	デコーダが対応するフィルター一覧を作る(GDI+が対応するものは全部...なんだけど、なぜメタ系まで取り出せてしまうのか。。。)
+	//	デコーダが対応するフィルター一覧を作る
 	//
 	{
 		m_imageFilter.Empty();
@@ -164,54 +166,59 @@ void CSampleAsyncWorkDlg::OnClickedButtonSelTargetpath()
 		UpdateData( FALSE );
 	}
 }
-#define CodeVer_Prot1 0
-#define CodeVer_Prot2 1
-#define CodeVer_Prot3 2
-#define ExecVer CodeVer_Prot3
 
-static BOOL APIENTRY PumpMessage()
+
+static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePath, std::map<COLORREF, size_t>& numColors )
 {
-	MSG msg;
-	while( ::PeekMessage( &msg, nullptr, 0, 0, PM_NOREMOVE ) )
-	{
-		if( !AfxPumpMessage() )
-		{
-			return FALSE;	// WM_QUITが来た(やばいんだけど。。。ｗ)
-		}
-	}
-	return TRUE;
-}
-static void APIENTRY CountColors( CListCtrl& lc, LPCTSTR imagePath, std::map<COLORREF, size_t>& numColors )
-{
+#if ExecVer < CodeVer_SimplePump
 	CWaitCursor wait;
+#endif
+#if ExecVer == CodeVer_ModelessDlg
+	CProgressDlg dlg( pParent );
+	if( !dlg.Create() )	//	無効化
+	{
+		AfxThrowResourceException();	//	リソースありませんエラーでいいでしょう
+	}
+#endif
 	//	初期化処理
 	lc.DeleteAllItems();
 	numColors.clear();
-
-#if ExecVer == CodeVer_Prot1 || ExecVer == CodeVer_Prot3
+#if ExecVer == CodeVer_SimplePump || ExecVer == CodeVer_ModelessDlg
+	CProgressDlg::PumpMessage();
+#endif
 	LVITEM item{};
 	item.mask = LVIF_PARAM|LVIF_TEXT;
+	//	テキストデータはその都度生成する(メモリイメージ省略のため)
 	item.cchTextMax = 0;
-	item.pszText = LPSTR_TEXTCALLBACK;	//	テキストデータはその都度生成する(メモリイメージ省略のため)
-#endif
+	item.pszText = LPSTR_TEXTCALLBACK;
+	
 	//	ファイルから読み込む
 	Gdiplus::Bitmap bmp( imagePath );
-
 	Gdiplus::BitmapData bmpData;
 	if( bmp.LockBits( nullptr, Gdiplus::ImageLockModeRead, PixelFormat32bppARGB, &bmpData ) == Gdiplus::Ok )
 	{
 		//const COLORREF* imageTop = static_cast<const COLORREF*>( bmpData.Scan0 );
 		const BYTE* imageTop = static_cast<const BYTE*>(bmpData.Scan0);
 		//	色データを個別計算するのは面倒なのでフルカラー画像で取り込むことにする
-		//	色数の取得処理そのものは並列化可能ただしカウンタを並列化するといろいろ面倒なことになるので今回はやらない
+		//concurrency::parallel_for( )
+		dlg.SetRange( 0, bmpData.Height );
+		dlg.SetStep( 1 );
 		for( UINT yLine = 0 ; yLine < bmpData.Height ; yLine++ )
 		{
 			const COLORREF* lineTop = reinterpret_cast<const COLORREF*>( imageTop + bmpData.Stride * yLine );
-#if ExecVer == CodeVer_Prot3
-			if( !PumpMessage() )
+#if ExecVer == CodeVer_SimplePump
+			if( !CProgressDlg::PumpMessage() )
 			{
-				return;	//	WM_QUIT だって！？
+				break;	//	ここでリターンとかシャレにならないんだけど。。。
 			}
+			CWaitCursor wait;
+#elif ExecVer == CodeVer_ModelessDlg
+			dlg.StepIt();
+			if( dlg.IsCancel() )
+			{
+				break;
+			}
+			CWaitCursor wait;
 #endif
 			for( UINT xPos = 0 ; xPos < bmpData.Width ; xPos++ )
 			{
@@ -219,11 +226,17 @@ static void APIENTRY CountColors( CListCtrl& lc, LPCTSTR imagePath, std::map<COL
 				if( itr != numColors.end() )
 				{
 					itr->second += 1;
+					LVFINDINFO findInfo;
+					findInfo.flags = LVFI_PARAM;
+					findInfo.lParam = lineTop[xPos];
+					int findNum = lc.FindItem( &findInfo );
+					_ASSERTE( findNum >= 0 );
+					lc.Update( findNum );	//	更新する(ちらつきがすごいと思うけど...)
 				}
 				else
 				{
 					numColors[lineTop[xPos]] = 1;
-#if ExecVer == CodeVer_Prot1 || ExecVer == CodeVer_Prot3
+#if ExecVer == CodeVer_Prototype || ExecVer == CodeVer_SimplePump || ExecVer == CodeVer_ModelessDlg
 					item.lParam = lineTop[xPos];
 					int index = lc.InsertItem( &item );	//	積極的に更新はしない
 					if( index >= 0 )
@@ -236,12 +249,8 @@ static void APIENTRY CountColors( CListCtrl& lc, LPCTSTR imagePath, std::map<COL
 		}
 		bmp.UnlockBits( &bmpData );
 	}
-#if ExecVer == CodeVer_Prot2
+#if ExecVer == CodeVer_SepInsert
 	lc.SetItemCount( numColors.size() );
-	LVITEM item{};
-	item.mask = LVIF_PARAM|LVIF_TEXT;
-	item.cchTextMax = 0;
-	item.pszText = LPSTR_TEXTCALLBACK;	//	テキストデータはその都度生成する(メモリイメージ省略のため)
 	lc.SetRedraw( FALSE );
 	for( const auto& numCol : numColors )
 	{
@@ -261,7 +270,12 @@ static void APIENTRY CountColors( CListCtrl& lc, LPCTSTR imagePath, std::map<COL
 	lc.SetColumnWidth( 0, LVSCW_AUTOSIZE_USEHEADER );
 	lc.SetColumnWidth( 1, LVSCW_AUTOSIZE_USEHEADER );
 	lc.Invalidate( TRUE );
+#if ExecVer == CodeVer_ModelessDlg
+	dlg.DestroyWindow();
+	//	裏に隠れてしまうのはなぜ？
+#endif
 }
+
 void CSampleAsyncWorkDlg::OnOK()
 {
 	if( !UpdateData() )
@@ -278,7 +292,7 @@ void CSampleAsyncWorkDlg::OnOK()
 		AfxMessageBox( m_targetPath + _T( "\n\nファイルが見つかりません。" ) );
 		return;
 	}
-	CountColors( m_countListCtrl, m_targetPath, m_numColors );
+	CountColors( this, m_countListCtrl, m_targetPath, m_numColors );
 }
 void CSampleAsyncWorkDlg::OnGetdispinfoListCount( NMHDR* pNMHDR, LRESULT* pResult )
 {

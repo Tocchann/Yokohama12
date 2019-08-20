@@ -11,6 +11,7 @@
 #define new DEBUG_NEW
 #endif
 
+#pragma comment(lib,"Gdiplus.lib")
 
 // CSampleAsyncWorkApp
 
