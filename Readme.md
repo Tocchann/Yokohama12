@@ -4,47 +4,7 @@
 
 参考資料:[Codezine連載「Windowsアプリケーションで「処理中」を表現する」](https://codezine.jp/article/corner/384)
 
-~~~cpp
-// ファイルのバイトデータの出現数を数える関数(内容は全く変わりません)
-// 画像の色数を数えることにする。画像はGDI+で読み取り
-bool CountCharInFile(
-    class CProgressDlg& dlg,
-    LPCTSTR filePath,
-    std::map<char,size_t>& numbers );
-~~~
-古のUIスレッドオンリーパターン(抜粋)
-~~~cpp
-void CSampleDlg::OnOK()
-{
-    // いろいろ前処理
-    CProgressDlg dlg;
-    dlg.Create();
-    if( CountCharInFile( dlg, m_targetPath, m_numColors ) )
-    {
-        // 画面を更新
-    }
-    dlg.CloseWindow();
-}
-~~~
-タスクを使った非同期処理
-~~~cpp
-void CSampleDlg::OnOK()
-{
-    // いろいろ前処理
-    CProgressDlg dlg;
-    auto task = concurrency::create_task( [&]()
-    {
-        return CountCharInFile( dlg, m_targetPath, m_numColors );
-    } ).then( [&]( bool result )
-    {
-        dlg.PostMessage( WM_CLOSE );
-        return result;
-    } );
-    dlg.DoModal();
-    if( task.get() )
-    {
-        // 画面更新
-    }
-}
-~~~
-移行のキモは CProgressDlg の実装にあったりします。そこは当日のお楽しみ？ｗ
+当初は処理の外側にダイアログを置こうかな？と思ったんですが、内容的に外側にループがもてないので、あきらめましたｗ
+
+ということで、実務にありがちな超ベタ書きコードです。これくらいの実装なら普通にあるでしょ？といっても過言ではないレベル。
+

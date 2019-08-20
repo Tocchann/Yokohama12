@@ -73,7 +73,6 @@ BOOL CProgressDlg::Create()
 INT_PTR CProgressDlg::DoModal()
 {
 	m_modalMode = true;
-
 	return __super::DoModal();
 }
 void CProgressDlg::ExitWork()

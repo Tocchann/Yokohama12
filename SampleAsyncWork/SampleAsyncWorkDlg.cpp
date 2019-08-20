@@ -178,15 +178,15 @@ void CSampleAsyncWorkDlg::OnClickedButtonSelTargetpath()
 //	タスクを使う
 #define ExecMode_Use_Task			0b0001'0000
 
-// シングルスレッド：リストアップと同時に追加
-#define CodeVer_Prototype ExecMode_Sync_InsertItem
-// シングルスレッド：リストアップと追加を分離
-#define CodeVer_SepInsert 0
-// シングルスレッド：リストアップと同時に追加＆メッセージポンプ回し
+// シングルスレッド：解析してからリストに追加
+#define CodeVer_Prototype 0
+// シングルスレッド：解析と同時にリストに追加
+#define CodeVer_SyncInsertItem ExecMode_Sync_InsertItem
+// シングルスレッド：追加時にメッセージポンプを稼働
 #define CodeVer_SimplePump (ExecMode_Sync_InsertItem|ExecMode_Call_PumpMssage)
-// シングルスレッド：モードレスでの処理中ダイアログ
+// シングルスレッド：モードレスダイアログで進捗表示
 #define CodeVer_ModelessDlg (ExecMode_Sync_InsertItem|ExecMode_Call_PumpMssage|ExecMode_Disp_ProgressDlg)
-// マルチスレッド：モーダルでの処理中ダイアログ
+// マルチスレッド：モーダルダイアログで進捗表示
 #define CodeVer_ModalDlg (ExecMode_Sync_InsertItem|ExecMode_Disp_ProgressDlg|ExecMode_Use_Task)
 
 //	実行バージョンのコード
@@ -267,12 +267,15 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
 					{
 						itr->second += 1;
 #if ExecVer & ExecMode_Sync_InsertItem
-						LVFINDINFO findInfo;
-						findInfo.flags = LVFI_PARAM;
-						findInfo.lParam = lineTop[xPos];
-						int findNum = lc.FindItem( &findInfo );
-						_ASSERTE( findNum >= 0 );
-						lc.Update( findNum );	//	更新する
+						if( itr->second % 100 == 0 )
+						{
+							LVFINDINFO findInfo;
+							findInfo.flags = LVFI_PARAM;
+							findInfo.lParam = lineTop[xPos];
+							int findNum = lc.FindItem( &findInfo );
+							_ASSERTE( findNum >= 0 );
+							lc.Update( findNum );	//	更新する
+						}
 #endif
 					}
 					else
@@ -349,10 +352,11 @@ void CSampleAsyncWorkDlg::OnGetdispinfoListCount( NMHDR* pNMHDR, LRESULT* pResul
 	NMLVDISPINFO* pDispInfo = reinterpret_cast<NMLVDISPINFO*>(pNMHDR);
 	if( pDispInfo->item.mask & LVIF_TEXT )
 	{
+		auto color = static_cast<COLORREF>(pDispInfo->item.lParam);
 		switch( pDispInfo->item.iSubItem )
 		{
-		case 0:	wsprintf( pDispInfo->item.pszText, _T( "0x%08X" ), pDispInfo->item.lParam );	break;
-		case 1:	wsprintf( pDispInfo->item.pszText, _T( "%u64" ), m_numColors[static_cast<COLORREF>( pDispInfo->item.lParam) ] );	break;
+		case 0:	swprintf_s( pDispInfo->item.pszText, pDispInfo->item.cchTextMax, _T( "0x%08X" ), color );	break;
+		case 1:	swprintf_s( pDispInfo->item.pszText, pDispInfo->item.cchTextMax, _T( "%zu" ), m_numColors[color] );	break;
 		}
 	}
 	*pResult = 0;
