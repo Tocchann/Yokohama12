@@ -193,8 +193,8 @@ void CSampleAsyncWorkDlg::OnClickedButtonSelTargetpath()
 //#define ExecVer CodeVer_Prototype
 //#define ExecVer CodeVer_SepInsert
 //#define ExecVer CodeVer_SimplePump
-//#define ExecVer CodeVer_ModelessDlg
-#define ExecVer CodeVer_ModalDlg
+#define ExecVer CodeVer_ModelessDlg
+//#define ExecVer CodeVer_ModalDlg
 
 
 static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePath, std::map<COLORREF, size_t>& numColors )
@@ -206,17 +206,18 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
 	item.cchTextMax = 0;
 	item.pszText = LPSTR_TEXTCALLBACK;
 
-	//	メッセージポンプが動かない版
 #if (ExecVer & (ExecMode_Call_PumpMssage|ExecMode_Disp_ProgressDlg)) == 0
+	//	メッセージポンプが動かない版 WM_SETCURSOR されるとマウスカーソルが戻るためメッセージポンプが動く場合はセットしない
 	CWaitCursor wait;
 #endif
 #if ExecVer & ExecMode_Disp_ProgressDlg
-	CProgressDlg dlg( pParent );
+	CProgressDlg dlg;
 #if (ExecVer & ExecMode_Use_Task) == 0
-	if( !dlg.Create() )	//	無効化
+	if( !dlg.Create( pParent ) )	//	無効化
 	{
 		AfxThrowResourceException();	//	リソースありませんエラーでいいでしょう
 	}
+	pParent->EnableWindow( FALSE );
 #endif
 #endif
 
@@ -303,7 +304,7 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
 	dlg.DoModal();
 	task.wait();	//	ここで同期化して終了待機してないと破綻する
 #endif
-#if (ExecVer & ExecMode_Sync_InsertItem) == 0
+#if ExecVer == CodeVer_Prototype
 	lc.SetItemCount( static_cast<int>( numColors.size() ) );
 	lc.SetRedraw( FALSE );
 	for( const auto& numCol : numColors )
@@ -324,7 +325,7 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
 	lc.SetColumnWidth( 0, LVSCW_AUTOSIZE_USEHEADER );
 	lc.SetColumnWidth( 1, LVSCW_AUTOSIZE_USEHEADER );
 	lc.Invalidate( TRUE );
-#if (ExecVer & (ExecMode_Disp_ProgressDlg|ExecMode_Call_PumpMssage)) == (ExecMode_Disp_ProgressDlg|ExecMode_Call_PumpMssage)
+#if ExecVer == CodeVer_ModelessDlg
 	dlg.ExitWork();
 #endif
 }

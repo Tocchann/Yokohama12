@@ -5,6 +5,11 @@ VisualStudioVersion = 16.0.29209.62
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{2696512E-D411-48B6-8039-D4D72028B490}"
 	ProjectSection(SolutionItems) = preProject
+		1338x1337.jpg = 1338x1337.jpg
+		1340x1786.jpg = 1340x1786.jpg
+		16x16.bmp = 16x16.bmp
+		24x24.jpg = 24x24.jpg
+		48x48.bmp = 48x48.bmp
 		Readme.md = Readme.md
 	EndProjectSection
 EndProject

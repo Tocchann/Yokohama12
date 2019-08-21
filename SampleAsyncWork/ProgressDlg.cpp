@@ -33,16 +33,10 @@ CProgressDlg::CProgressDlg(CWnd* pParent /*=nullptr*/)
 	, m_marqueeMode( true )
 	, m_pos( 0 )
 {
-	_ASSERTE( m_pParentWnd != nullptr );	//	親ウィンドウは強制で指定してもらう
 	m_exitWork.reset();
 }
 CProgressDlg::~CProgressDlg()
 {
-	if( !m_modalMode )
-	{
-		PumpMessage();
-		m_pParentWnd->EnableWindow( TRUE );
-	}
 }
 void CProgressDlg::DoDataExchange(CDataExchange* pDX)
 {
@@ -53,19 +47,16 @@ BEGIN_MESSAGE_MAP(CProgressDlg, CDialog)
 	ON_BN_CLICKED( IDC_BUTTON_CANCEL, &CProgressDlg::OnClickedButtonCancel )
 END_MESSAGE_MAP()
 
-BOOL CProgressDlg::Create()
+BOOL CProgressDlg::Create( _In_ CWnd* pParent )
 {
-	_ASSERTE( m_pParentWnd != nullptr && m_pParentWnd->m_hWnd != nullptr && ::IsWindow( *m_pParentWnd ) );
-	m_pParentWnd->EnableWindow( FALSE );
-	auto result = __super::Create( IDD_PROGRESS, m_pParentWnd );
+	_ASSERTE( pParent != nullptr && pParent->m_hWnd != nullptr && ::IsWindow( *pParent ) );
+	auto result = __super::Create( IDD_PROGRESS, pParent );
 	if( result )
 	{
+		pParent->EnableWindow( FALSE );
+		m_pOwnerWnd = pParent;
 		ShowWindow( SW_SHOW );
 		UpdateWindow();
-	}
-	else
-	{
-		m_pParentWnd->EnableWindow( TRUE );
 	}
 	m_modalMode = false;
 	return result;
@@ -80,7 +71,15 @@ void CProgressDlg::ExitWork()
 	m_exitWork.set();
 	if( m_progress.m_hWnd != nullptr )
 	{
-		PostMessage( WM_CLOSE );
+		if( m_modalMode )
+		{
+			PostMessage( WM_CLOSE );
+		}
+		else
+		{
+			m_pOwnerWnd->EnableWindow( TRUE );
+			DestroyWindow();
+		}
 	}
 }
 bool CProgressDlg::IsCancel()

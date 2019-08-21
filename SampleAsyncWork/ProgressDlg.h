@@ -14,13 +14,13 @@ public:
 	//	メッセージポンプはどこにでもあるようなものなので、名前空間代わりにダイアログクラス名を利用する
 	static BOOL PumpMessage();
 
-	CProgressDlg( _In_ CWnd* pParent );   // 標準コンストラクター
+	CProgressDlg( _In_ CWnd* pParent = nullptr );   // 標準コンストラクター
 	virtual ~CProgressDlg();
 // ダイアログ データ
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_PROGRESS };
 #endif
-	BOOL Create();
+	BOOL Create( _In_ CWnd* pParent );
 	virtual INT_PTR DoModal();
 	void ExitWork();
 	//	キャンセルチェック
@@ -47,6 +47,7 @@ private:
 	bool m_marqueeMode;
 	concurrency::cancellation_token_source m_cts;
 	concurrency::event m_exitWork;
+	CWnd* m_pOwnerWnd;
 
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV サポート
