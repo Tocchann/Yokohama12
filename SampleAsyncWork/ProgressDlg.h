@@ -11,8 +11,6 @@ class CProgressDlg : public CDialog
 	DECLARE_DYNAMIC(CProgressDlg)
 
 public:
-	//	メッセージポンプはどこにでもあるようなものなので、名前空間代わりにダイアログクラス名を利用する
-	static BOOL PumpMessage();
 
 	CProgressDlg( _In_ CWnd* pParent = nullptr );   // 標準コンストラクター
 	virtual ~CProgressDlg();

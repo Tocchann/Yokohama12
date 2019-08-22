@@ -24,7 +24,7 @@ public:
 // 実装
 protected:
 	HICON m_hIcon;
-	std::map<COLORREF, size_t> m_numColors;
+	std::map<Gdiplus::ARGB, size_t> m_numColors;
 	CString m_imageFilter;
 
 	// 生成された、メッセージ割り当て関数

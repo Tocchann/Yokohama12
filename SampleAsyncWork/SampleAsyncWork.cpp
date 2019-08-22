@@ -93,3 +93,17 @@ BOOL CSampleAsyncWorkApp::InitInstance()
 	return FALSE;
 }
 
+// MFCの機能を100%活用するメッセージポンプ
+BOOL CSampleAsyncWorkApp::DoEvents()
+{
+	MSG msg;
+	while( ::PeekMessage( &msg, nullptr, 0, 0, PM_NOREMOVE ) )
+	{
+		// AfxPumpMessage() は、内部で GetMessage でメッセージを待ってしまうためそのまま使うと都合が悪い
+		if( !AfxPumpMessage() )
+		{
+			return FALSE;
+		}
+	}
+	return TRUE;
+}

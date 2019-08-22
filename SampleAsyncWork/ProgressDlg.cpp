@@ -6,21 +6,6 @@
 #include "ProgressDlg.h"
 
 
-// MFCの機能を100%活用するメッセージポンプ
-BOOL CProgressDlg::PumpMessage()
-{
-	MSG msg;
-	while( ::PeekMessage( &msg, nullptr, 0, 0, PM_NOREMOVE ) )
-	{
-		// AfxPumpMessage() は、内部で GetMessage でメッセージを待ってしまうためそのまま使うと都合が悪い
-		if( !AfxPumpMessage() )
-		{
-			return FALSE;	// WM_QUITが来た(やばいんだけど。。。ｗ)
-		}
-	}
-	return TRUE;
-}
-
 // CProgressDlg ダイアログ
 IMPLEMENT_DYNAMIC(CProgressDlg, CDialog)
 
@@ -89,7 +74,7 @@ bool CProgressDlg::IsCancel()
 		if( m_progress.m_hWnd != nullptr )
 		{
 			//	ポンプが FALSE を返す == WM_QUIT 何だが。。。
-			if( !PumpMessage() )
+			if( !CSampleAsyncWorkApp::DoEvents() )
 			{
 				return true;
 			}

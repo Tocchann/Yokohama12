@@ -14,6 +14,9 @@
 class CSampleAsyncWorkApp : public CWinApp
 {
 public:
+	static BOOL DoEvents();
+
+
 	CSampleAsyncWorkApp();
 // オーバーライド
 public:
