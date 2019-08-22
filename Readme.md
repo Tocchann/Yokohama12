@@ -1,43 +1,43 @@
-# ��񂭂ܓ��� ���l�׋��� #12
+﻿# わんくま同盟 横浜勉強会 #12
 
-## ����������񓯊������悤�Ifor C++
+## 同期処理を非同期化しよう！for C++
 
-Github ���|�W�g���F https://github.com/tocchann/yokohama12
+Github リポジトリ： https://github.com/tocchann/yokohama12
 
-�Q�l����:[Codezine�A�ځuWindows�A�v���P�[�V�����Łu�������v��\������v](https://codezine.jp/article/corner/384)
+参考資料:[Codezine連載「Windowsアプリケーションで「処理中」を表現する」](https://codezine.jp/article/corner/384)
 
-�����͏����̊O���Ƀ_�C�A���O��u�������ȁH�Ǝv������ł����A���e�I�ɊO���Ƀ��[�v�����ĂȂ��̂ŁA������߂܂�����
+当初は処理の外側にダイアログを置こうかな？と思ったんですが、内容的に外側にループがもてないので、あきらめましたｗ
 
-�Ƃ������ƂŁA�����ɂ��肪���Ȓ��x�^�����R�[�h�ł��B���ꂭ�炢�̎����Ȃ畁�ʂɂ���ł���H�Ƃ����Ă��ߌ��ł͂Ȃ����x���B
+ということで、実務にありがちな超ベタ書きコードです。これくらいの実装なら普通にあるでしょ？といっても過言ではないレベル。
 
-## �A�W�F���_
+## アジェンダ
 
-* �����Ȃ��ɂȂ闝�R
-* �����Ȃ��ɂȂ�Ȃ��悤�ɂ���ɂ�
-* ����������񓯊��ɂ��悤�I
+* 応答なしになる理由
+* 応答なしにならないようにするには
+* 同期処理を非同期にしよう！
 
-## �����Ȃ��ɂȂ闝�R
+## 応答なしになる理由
 
-#### �O�����
+#### 前提条件
 
-Windows �͊e�v���Z�X�����b�Z�[�W�������������Ȃ���A�������ē��삷��悤�ɍ���Ă���B
+Windows は各プロセスがメッセージを処理しあいながら、協調して動作するように作られている。
 
-#### ���_
+#### 結論
 
-���b�Z�[�W����������Ȃ��܂܂̏�Ԃ���莞�Ԍo�߂���Ɖ������Ă��Ȃ��Ɣ��f�����B
+メッセージが処理されないままの状態が一定時間経過すると応答していないと判断される。
 
-## �����Ȃ��ɂȂ�Ȃ��悤�ɂ���ɂ�
+## 応答なしにならないようにするには
 
-���b�Z�[�W����������΂����B
+メッセージを処理すればいい。
 
-### ���b�Z�[�W����������ɂ́H
+### メッセージを処理するには？
 
-�A�v���P�[�V�����ŁA���b�Z�[�W�����֐����Ăяo�����ƂŎ���
+アプリケーションで、メッセージ処理関数を呼び出すことで実現
 
-�����̃t���[�����[�N���A�A�v���P�[�V�����N���X�� Run() ���\�b�h�����b�Z�[�W���[�v�����B  
-�܂��A���[�_���_�C�A���O(MFC�Ȃ�DoModal, .NET �Ȃ�AShowDialog)�������œƎ��̃��b�Z�[�W���[�v���񂵂Ă���(API�����l)
+多くのフレームワークが、アプリケーションクラスの Run() メソッドがメッセージループを持つ。  
+また、モーダルダイアログ(MFCならDoModal, .NET なら、ShowDialog)も内部で独自のメッセージループを回している(APIも同様)
 
-#### �ł��V���v���ȃ��b�Z�[�W���[�v�̗�
+#### 最もシンプルなメッセージループの例
 
 ~~~cpp
 MSG msg;
@@ -48,18 +48,18 @@ while( GetMessage( &msg, nullptr, 0, 0 ) )
 }
 ~~~
 
-### �A�v�����ňꎞ�I�Ƀ��b�Z�[�W���[�v���񂷏ꍇ�́H
+### アプリ内で一時的にメッセージループを回す場合は？
 
-.NET �ł����΁ADoEvents() ���Ăяo�����Ƃŋ����I�Ƀ��b�Z�[�W���������邱�Ƃ��\�B  
-MFC�ɂ��ގ��� AfxPumpMessage �Ƃ����O���[�o���֐������邪������ƕȂ�����̂ŁA���b�v�֐������̂���ʓI
+.NET でいえば、DoEvents() を呼び出すことで強制的にメッセージを処理することが可能。  
+MFCにも類似の AfxPumpMessage というグローバル関数があるがちょっと癖があるので、ラップ関数を作るのが一般的
 
-#### MFC �� Appliation::DoEvents ���ǂ�
+#### MFC 版 Appliation::DoEvents もどき
 
-�ȉ��̓���������̂Ń��b�v�֐�������đΉ�����
+以下の特性があるのでラップ関数を作って対応する
 
-MFC�ɂ͎��ۂ̃��b�Z�[�W�������s���Ă���� `AfxPumpMessage()` �Ƃ����܂�܂̖��O�̃O���[�o���֐�������B  
-�������A`GetMessage()` �Ń��b�Z�[�W��҂��Ă��܂����߁A���b�Z�[�W���Ȃ��Ƃ��ɌĂяo���ƋA���Ă��Ȃ��B  
-�����Ƃ��āA�Ăяo���O�Ƀ��b�Z�[�W�����邩���m�F���邱�ƂŌĂяo��������s�����Ƃ��ł���
+MFCには実際のメッセージ処理を行ってくれる `AfxPumpMessage()` というまんまの名前のグローバル関数がある。  
+ただし、`GetMessage()` でメッセージを待ってしまうため、メッセージがないときに呼び出すと帰ってこない。  
+回避策として、呼び出し前にメッセージがあるかを確認することで呼び出し判定を行うことができる
 
 ~~~cpp
 BOOL CSampleAsyncWorkApp::DoEvents()
@@ -76,23 +76,23 @@ BOOL CSampleAsyncWorkApp::DoEvents()
 }
 ~~~
 
-## ����������񓯊��ɂ��悤�I
+## 同期処理を非同期にしよう！
 
-��������͎��ۂ̃R�[�h���������Ǝv���܂��B
+ここからは実際のコードを見たいと思います。
 
-### �{������Ȃ�����
+### 本質じゃない部分
 
-* �_�C�A���O�A�v���ɂȂ��Ă���̂ŁAWM_QUIT ����������Ȃ��������d�v
-* LVN_GETDISPINFO ���g���ă��X�g�R���g���[���̃���������ʂ�ጸ
-* �摜������ GDI+ �őΉ�
-* �F�����́A32bit �J���[�Ȃ̂� Gdiplus::ARGB �𗘗p
+* ダイアログアプリになっているので、WM_QUIT が処理されない＜ここ重要
+* LVN_GETDISPINFO を使ってリストコントロールのメモリ消費量を低減
+* 画像処理は GDI+ で対応
+* 色数情報は、32bit カラーなので Gdiplus::ARGB を利用
 
-### �Ǘ����Ă�f�[�^
+### 管理してるデータ
 
-�摜�̐F�Ƃ��̏o����������΂���  
--> `std::map<Gdiplus::ARGB,size_t>` �Ńf�[�^�Ǘ��B
+画像の色とその出現数があればいい  
+-> `std::map<Gdiplus::ARGB,size_t>` でデータ管理。
 
-### ��ʕ\������
+### 画面表示部分
 
 ~~~cpp
 void CSampleAsyncWorkDlg::OnGetdispinfoListCount( NMHDR* pNMHDR, LRESULT* pResult )
@@ -117,44 +117,44 @@ void CSampleAsyncWorkDlg::OnGetdispinfoListCount( NMHDR* pNMHDR, LRESULT* pResul
   *pResult = 0;
 }
 ~~~
-### �摜��͕���
+### 画像解析部分
 
-CountColors �Ƃ����X�^�e�B�b�N�֐��Ŏ���
+CountColors というスタティック関数で実装
 
-���������Ԃ̂����鏈���̃R�A����  
-���Ԃ̂����鏈���͑傫��2�̃��[�v������  
-��͉摜�̉�f���̂��̂�ǂݎ��Ƃ���  
-������̓��X�g�ɃA�C�e����ǉ�����Ƃ���
+ここが時間のかかる処理のコア部分  
+時間のかかる処理は大きく2つのループがある  
+一つは画像の画素そのものを読み取るところ  
+もう一つはリストにアイテムを追加するところ
 
-##### �v���g�^�C�v(CodeVer_Prototype)
+##### プロトタイプ(CodeVer_Prototype)
 
-�V���v���Ȏ���  
-��f�̓ǂݎ��ƁA���X�g�ւ̒ǉ������ꂼ��ʁX�ɍs���Ă���B  
-(���Ȃ݂ɏ����p�����[�^�ɂ́ACWnd* pParent �͂Ȃ�)
+シンプルな実装  
+画素の読み取りと、リストへの追加をそれぞれ別々に行っている。  
+(ちなみに初期パラメータには、CWnd* pParent はない)
 
 ~~~cpp
 static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePath, std::map<Gdiplus::ARGB, size_t>& numColors )
 {
-  // InsertItem ����Ƃ��Ɏg�����(�R�[���o�b�N�Ńe�L�X�g�\������̂Ńf�[�^��LPARAM����)
+  // InsertItem するときに使う情報(コールバックでテキスト表示するのでデータはLPARAMだけ)
   LVITEM item{};
   item.mask = LVIF_PARAM|LVIF_TEXT;
-  // �e�L�X�g�f�[�^�͂��̓s�x��������(�������C���[�W�ȗ��̂���)
+  // テキストデータはその都度生成する(メモリイメージ省略のため)
   item.cchTextMax = 0;
   item.pszText = LPSTR_TEXTCALLBACK;
 
-  // ���b�Z�[�W�|���v�������Ȃ��� WM_SETCURSOR �����ƃ}�E�X�J�[�\�����߂邽�߃��b�Z�[�W�|���v�������ꍇ�̓Z�b�g���Ȃ�
+  // メッセージポンプが動かない版 WM_SETCURSOR されるとマウスカーソルが戻るためメッセージポンプが動く場合はセットしない
   CWaitCursor wait;
   {
-    // ����������
+    // 初期化処理
     lc.DeleteAllItems();
     numColors.clear();
-    // �t�@�C������ǂݍ���
+    // ファイルから読み込む
     Gdiplus::Bitmap bmp( imagePath );
     Gdiplus::BitmapData bmpData;
     if( bmp.LockBits( nullptr, Gdiplus::ImageLockModeRead, PixelFormat32bppARGB, &bmpData ) == Gdiplus::Ok )
     {
       const BYTE* imageTop = static_cast<const BYTE*>(bmpData.Scan0);
-      // �摜����F�����s�b�N�A�b�v���āAmap<Gdiplus::ARGB,size_t> �Ɋi�[����
+      // 画像から色情報をピックアップして、map<Gdiplus::ARGB,size_t> に格納する
       for( UINT yLine = 0 ; yLine < bmpData.Height ; yLine++ )
       {
         const Gdiplus::ARGB* lineTop = reinterpret_cast<const Gdiplus::ARGB*>(imageTop + bmpData.Stride * yLine);
@@ -174,7 +174,7 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
       bmp.UnlockBits( &bmpData );
     }
   }
-  // ��荞�񂾐F�������X�g�R���g���[���Ɉꊇ�Z�b�g����
+  // 取り込んだ色情報をリストコントロールに一括セットする
   lc.SetItemCount( static_cast<int>(numColors.size()) );
   lc.SetRedraw( FALSE );
   for( const auto& numCol : numColors )
@@ -187,7 +187,7 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
     }
     else
     {
-      break;  // �F���ǉ��ł��Ȃ��Ȃ������_�ł�����߂�
+      break;  // 色が追加できなくなった時点であきらめる
     }
   }
   lc.SetRedraw( TRUE );
@@ -197,33 +197,33 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
 }
 ~~~
 
-#### ���X�g�ւ̒ǉ��������ɏ�������悤�ɕύX(CodeVer_SyncInsertItem)
+#### リストへの追加も同時に処理するように変更(CodeVer_SyncInsertItem)
 
-������Ƃł����Ɖ�����Ă邩�悭�킩��Ȃ�������ǂ��悤�I  
-���X�g�ɒǉ��𓯎��ɂ��Γ����������邩��킩��₷���񂶂�Ȃ����H
+ちょっとでかいと何やってるかよくわからないから改良しよう！  
+リストに追加を同時にやれば動きが見えるからわかりやすいんじゃないか？
 
 ~~~cpp
 static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePath, std::map<Gdiplus::ARGB, size_t>& numColors )
 {
-  // InsertItem ����Ƃ��Ɏg�����(�R�[���o�b�N�Ńe�L�X�g�\������̂Ńf�[�^��LPARAM����)
+  // InsertItem するときに使う情報(コールバックでテキスト表示するのでデータはLPARAMだけ)
   LVITEM item{};
   item.mask = LVIF_PARAM|LVIF_TEXT;
   item.cchTextMax = 0;
   item.pszText = LPSTR_TEXTCALLBACK;
 
-  // ���b�Z�[�W�|���v�������Ȃ��� WM_SETCURSOR �����ƃ}�E�X�J�[�\�����߂邽�߃��b�Z�[�W�|���v�������ꍇ�̓Z�b�g���Ȃ�
+  // メッセージポンプが動かない版 WM_SETCURSOR されるとマウスカーソルが戻るためメッセージポンプが動く場合はセットしない
   CWaitCursor wait;
   {
-    // �O�̃f�[�^��j��
+    // 前のデータを破棄
     lc.DeleteAllItems();
     numColors.clear();
-    // �摜��ǂݍ���ŁA�r�b�g�C���[�W�����o��
+    // 画像を読み込んで、ビットイメージを取り出す
     Gdiplus::Bitmap bmp( imagePath );
     Gdiplus::BitmapData bmpData;
-    // �F�f�[�^���ʌv�Z����͖̂ʓ|�Ȃ̂Ńt���J���[�摜�Ŏ�荞�ނ��Ƃɂ���
+    // 色データを個別計算するのは面倒なのでフルカラー画像で取り込むことにする
     if( bmp.LockBits( nullptr, Gdiplus::ImageLockModeRead, PixelFormat32bppARGB, &bmpData ) == Gdiplus::Ok )
     {
-      //const Gdiplus::ARGB* imageTop = static_cast<const Gdiplus::ARGB*>( bmpData.Scan0 ); // �ʒu�������̂ł����ł��̌`�͂���
+      //const Gdiplus::ARGB* imageTop = static_cast<const Gdiplus::ARGB*>( bmpData.Scan0 ); // 位置がずれるのでここでこの形はだめ
       const BYTE* imageTop = static_cast<const BYTE*>(bmpData.Scan0);
       for( UINT yLine = 0 ; yLine < bmpData.Height ; yLine++ )
       {
@@ -232,7 +232,7 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
         for( UINT xPos = 0 ; xPos < bmpData.Width ; xPos++ )
         {
           auto itr = numColors.find( lineTop[xPos] );
-          // �F������������X�V����
+          // 色数が増えたら更新する
           if( itr != numColors.end() )
           {
             itr->second += 1;
@@ -245,7 +245,7 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
               lc.Update( findNum );
             }
           }
-          // �V�F��ǉ�
+          // 新色を追加
           else
           {
             numColors[lineTop[xPos]] = 1;
@@ -261,39 +261,39 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
       bmp.UnlockBits( &bmpData );
     }
   }
-  // ���𒲐����ĕ�����������悤�ɂ���
+  // 幅を調整して文字が見えるようにする
   lc.SetColumnWidth( 0, LVSCW_AUTOSIZE_USEHEADER );
   lc.SetColumnWidth( 1, LVSCW_AUTOSIZE_USEHEADER );
   lc.Invalidate( TRUE );
 }
 ~~~
 
-#### ���b�Z�[�W�|���v���K�v��(CodeVer_SimplePump)
+#### メッセージポンプが必要だ(CodeVer_SimplePump)
 
-�X�N���[���o�[�͏o�Ă��邯�ǉ�����Ă邩�킩��Ȃ��I  
-��񂭂܌f���Ŏ��₾�I(�ĕ`�悳��Ȃ���ł����B�B�B�Ƃ��������9��������)  
-���b�Z�[�W����������΂����̂��I(DoEvents��p�ӂ����I)
+スクロールバーは出てくるけど何やってるかわからない！  
+わんくま掲示板で質問だ！(再描画されないんですが。。。という質問の9割がこれ)  
+メッセージを処理すればいいのか！(DoEventsを用意した！)
 
 ~~~cpp
 static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePath, std::map<Gdiplus::ARGB, size_t>& numColors )
 {
-  // InsertItem ����Ƃ��Ɏg�����(�R�[���o�b�N�Ńe�L�X�g�\������̂Ńf�[�^��LPARAM����)
+  // InsertItem するときに使う情報(コールバックでテキスト表示するのでデータはLPARAMだけ)
   LVITEM item{};
   item.mask = LVIF_PARAM|LVIF_TEXT;
   item.cchTextMax = 0;
   item.pszText = LPSTR_TEXTCALLBACK;
   {
-    // �O�̃f�[�^��j��
+    // 前のデータを破棄
     lc.DeleteAllItems();
     numColors.clear();
-    // �摜��ǂݍ���ŁA�r�b�g�C���[�W�����o��
+    // 画像を読み込んで、ビットイメージを取り出す
     Gdiplus::Bitmap bmp( imagePath );
     Gdiplus::BitmapData bmpData;
     CSampleAsyncWorkApp::DoEvents();
-    // �F�f�[�^���ʌv�Z����͖̂ʓ|�Ȃ̂Ńt���J���[�摜�Ŏ�荞�ނ��Ƃɂ���
+    // 色データを個別計算するのは面倒なのでフルカラー画像で取り込むことにする
     if( bmp.LockBits( nullptr, Gdiplus::ImageLockModeRead, PixelFormat32bppARGB, &bmpData ) == Gdiplus::Ok )
     {
-      //const Gdiplus::ARGB* imageTop = static_cast<const Gdiplus::ARGB*>( bmpData.Scan0 ); // �ʒu�������̂ł����ł��̌`�͂���
+      //const Gdiplus::ARGB* imageTop = static_cast<const Gdiplus::ARGB*>( bmpData.Scan0 ); // 位置がずれるのでここでこの形はだめ
       const BYTE* imageTop = static_cast<const BYTE*>(bmpData.Scan0);
       for( UINT yLine = 0 ; yLine < bmpData.Height ; yLine++ )
       {
@@ -332,47 +332,47 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
       bmp.UnlockBits( &bmpData );
     }
   }
-  // ���𒲐����ĕ�����������悤�ɂ���
+  // 幅を調整して文字が見えるようにする
   lc.SetColumnWidth( 0, LVSCW_AUTOSIZE_USEHEADER );
   lc.SetColumnWidth( 1, LVSCW_AUTOSIZE_USEHEADER );
   lc.Invalidate( TRUE );
 }
 ~~~
 
-#### �i����Ԃ��o����(CodeVer_ModelessDlg)
+#### 進捗状態を出そう(CodeVer_ModelessDlg)
 
-�摜���ł����Ȃ�Ǝ��Ԃ�������΂�����ŉ�������Ă�̂��悭�킩��Ȃ�  
-�������Ɂ~�{�^���������Ă��I���Ȃ�(���_�C�A���O��WM_QUIT�̏����������Ă��Ȃ����ߗ����Ȃ�����)
-�i���_�C�A���O���o���΂�������Ȃ��I
+画像がでかくなると時間がかかるばっかりで何をやってるのかよくわからない  
+処理中に×ボタンを押しても終わらない(※ダイアログはWM_QUITの処理を持っていないため落ちないだけ)
+進捗ダイアログを出せばいいじゃない！
 
 ~~~cpp
 static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePath, std::map<Gdiplus::ARGB, size_t>& numColors )
 {
-  // InsertItem ����Ƃ��Ɏg�����(�R�[���o�b�N�Ńe�L�X�g�\������̂Ńf�[�^��LPARAM����)
+  // InsertItem するときに使う情報(コールバックでテキスト表示するのでデータはLPARAMだけ)
   LVITEM item{};
   item.mask = LVIF_PARAM|LVIF_TEXT;
   item.cchTextMax = 0;
   item.pszText = LPSTR_TEXTCALLBACK;
-  // �C���W�P�[�^�t���_�C�A���O
+  // インジケータ付きダイアログ
   CProgressDlg dlg;
-  if( !dlg.Create( pParent ) )	// ������
+  if( !dlg.Create( pParent ) )	// 無効化
   {
-    AfxThrowResourceException();	// ���\�[�X����܂���G���[�ł����ł��傤
+    AfxThrowResourceException();	// リソースありませんエラーでいいでしょう
   }
   pParent->EnableWindow( FALSE );
   {
-    // �O�̃f�[�^��j��
+    // 前のデータを破棄
     lc.DeleteAllItems();
     numColors.clear();
-    // �摜��ǂݍ���ŁA�r�b�g�C���[�W�����o��
+    // 画像を読み込んで、ビットイメージを取り出す
     Gdiplus::Bitmap bmp( imagePath );
     Gdiplus::BitmapData bmpData;
-    // �F�f�[�^���ʌv�Z����͖̂ʓ|�Ȃ̂Ńt���J���[�摜�Ŏ�荞�ނ��Ƃɂ���
+    // 色データを個別計算するのは面倒なのでフルカラー画像で取り込むことにする
     if( bmp.LockBits( nullptr, Gdiplus::ImageLockModeRead, PixelFormat32bppARGB, &bmpData ) == Gdiplus::Ok )
     {
-      //const Gdiplus::ARGB* imageTop = static_cast<const Gdiplus::ARGB*>( bmpData.Scan0 ); // �ʒu�������̂ł����ł��̌`�͂���
+      //const Gdiplus::ARGB* imageTop = static_cast<const Gdiplus::ARGB*>( bmpData.Scan0 ); // 位置がずれるのでここでこの形はだめ
       const BYTE* imageTop = static_cast<const BYTE*>(bmpData.Scan0);
-      // �C���W�P�[�^�����C�����ŃZ�b�g�B�X�e�b�v�J�E���g�͂P
+      // インジケータをライン数でセット。ステップカウントは１
       dlg.SetRange( 0, bmpData.Height );
       dlg.SetStep( 1 );
       for( UINT yLine = 0 ; yLine < bmpData.Height ; yLine++ )
@@ -414,7 +414,7 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
       bmp.UnlockBits( &bmpData );
     }
   }
-  // ���𒲐����ĕ�����������悤�ɂ���
+  // 幅を調整して文字が見えるようにする
   lc.SetColumnWidth( 0, LVSCW_AUTOSIZE_USEHEADER );
   lc.SetColumnWidth( 1, LVSCW_AUTOSIZE_USEHEADER );
   lc.Invalidate( TRUE );
@@ -422,36 +422,36 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
 }
 ~~~
 
-#### �񓯊������ɂ��悤(CodeVer_AsyncWork)
+#### 非同期処理にしよう(CodeVer_AsyncWork)
 
-�i���_�C�A���O�������Ă���ƁA�������~�܂�I
-�����݂̓��͉��P����(�����������d���Ȃ����C������)
-�i���o���悤�ɂ�����̂�肩�Ȃ莞�Ԃ�������悤�ɂȂ��ĂȂ����H(���R�Ƃ������o)
+進捗ダイアログを握っていると、処理が止まる！
+反応の鈍さは改善した(ただし少し重くなった気がする)
+進捗出すようにしたら昔よりかなり時間がかかるようになってないか？(漠然とした感覚)
 
 ~~~cpp
 static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePath, std::map<Gdiplus::ARGB, size_t>& numColors )
 {
-  // InsertItem ����Ƃ��Ɏg�����(�R�[���o�b�N�Ńe�L�X�g�\������̂Ńf�[�^��LPARAM����)
+  // InsertItem するときに使う情報(コールバックでテキスト表示するのでデータはLPARAMだけ)
   LVITEM item{};
   item.mask = LVIF_PARAM|LVIF_TEXT;
   item.cchTextMax = 0;
   item.pszText = LPSTR_TEXTCALLBACK;
-  // �C���W�P�[�^�t���_�C�A���O
+  // インジケータ付きダイアログ
   CProgressDlg dlg;
   auto task = concurrency::create_task( [&]()
   {
-    // �O�̃f�[�^��j��
+    // 前のデータを破棄
     lc.DeleteAllItems();
     numColors.clear();
-    // �摜��ǂݍ���ŁA�r�b�g�C���[�W�����o��
+    // 画像を読み込んで、ビットイメージを取り出す
     Gdiplus::Bitmap bmp( imagePath );
     Gdiplus::BitmapData bmpData;
-    // �F�f�[�^���ʌv�Z����͖̂ʓ|�Ȃ̂Ńt���J���[�摜�Ŏ�荞�ނ��Ƃɂ���
+    // 色データを個別計算するのは面倒なのでフルカラー画像で取り込むことにする
     if( bmp.LockBits( nullptr, Gdiplus::ImageLockModeRead, PixelFormat32bppARGB, &bmpData ) == Gdiplus::Ok )
     {
-      //const Gdiplus::ARGB* imageTop = static_cast<const Gdiplus::ARGB*>( bmpData.Scan0 ); // �ʒu�������̂ł����ł��̌`�͂���
+      //const Gdiplus::ARGB* imageTop = static_cast<const Gdiplus::ARGB*>( bmpData.Scan0 ); // 位置がずれるのでここでこの形はだめ
       const BYTE* imageTop = static_cast<const BYTE*>(bmpData.Scan0);
-      // �C���W�P�[�^�����C�����ŃZ�b�g�B�X�e�b�v�J�E���g�͂P
+      // インジケータをライン数でセット。ステップカウントは１
       dlg.SetRange( 0, bmpData.Height );
       dlg.SetStep( 1 );
       for( UINT yLine = 0 ; yLine < bmpData.Height ; yLine++ )
@@ -497,22 +497,22 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
     dlg.ExitWork();
   } );
   dlg.DoModal();
-  // �����œ��������ďI���ҋ@���ĂȂ��Ɣj�]����
+  // ここで同期化して終了待機してないと破綻する
   task.wait();
-  // ���𒲐����ĕ�����������悤�ɂ���
+  // 幅を調整して文字が見えるようにする
   lc.SetColumnWidth( 0, LVSCW_AUTOSIZE_USEHEADER );
   lc.SetColumnWidth( 1, LVSCW_AUTOSIZE_USEHEADER );
   lc.Invalidate( TRUE );
 }
 ~~~
 
-### ���񖢎���(CodeVer_Parallels)
+### 今回未実装(CodeVer_Parallels)
 
-�񓯊��ɂ��邾���ł͎��Ԃ̒Z�k�ɂ͂Ȃ�Ȃ�  
-���񉻂��K�v  
-���́A�v���g�^�C�v�̍l�����͎��͊Ԉ���Ă��Ȃ�����!
+非同期にするだけでは時間の短縮にはならない  
+並列化が必要  
+実は、プロトタイプの考え方は実は間違っていなかった!
 
-�ǂ�����񉻂���̂������̂��H
+どこを並列化するのがいいのか？
 
-���e��܂ł́A�h��ɂ������Ǝv���܂��B
+懇親会までの、宿題にしたいと思います。
 
