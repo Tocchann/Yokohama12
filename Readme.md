@@ -2,8 +2,7 @@
 
 ## 同期処理を非同期化しよう！for C++
 
-Github リポジトリ：https://github.com/tocchann/yokohama12
-
+Github リポジトリ： https://github.com/tocchann/yokohama12
 
 参考資料:[Codezine連載「Windowsアプリケーションで「処理中」を表現する」](https://codezine.jp/article/corner/384)
 
