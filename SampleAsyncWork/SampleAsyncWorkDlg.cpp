@@ -212,12 +212,11 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
 #if ExecVer & ExecMode_Disp_ProgressDlg
 	// インジケータ付きダイアログ
 	CProgressDlg dlg;
-#if (ExecVer & ExecMode_Use_Task) == 0
+#if ExecVer & ExecMode_Call_PumpMssage
 	if( !dlg.Create( pParent ) )	// 無効化
 	{
 		AfxThrowResourceException();	// リソースありませんエラーでいいでしょう
 	}
-	pParent->EnableWindow( FALSE );
 #endif
 #endif
 
@@ -269,17 +268,12 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
 					{
 						itr->second += 1;
 #if ExecVer & ExecMode_Sync_InsertItem
-#if ExecVer & ExecMode_Use_Task
-						if( itr->second % 100 == 0 )
-#endif
-						{
-							LVFINDINFO findInfo;
-							findInfo.flags = LVFI_PARAM;
-							findInfo.lParam = lineTop[xPos];
-							int findNum = lc.FindItem( &findInfo );
-							_ASSERTE( findNum >= 0 );
-							lc.Update( findNum );
-						}
+						LVFINDINFO findInfo;
+						findInfo.flags = LVFI_PARAM;
+						findInfo.lParam = lineTop[xPos];
+						int findNum = lc.FindItem( &findInfo );
+						_ASSERTE( findNum >= 0 );
+						lc.Update( findNum );
 #endif
 					}
 					else

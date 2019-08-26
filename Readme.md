@@ -28,16 +28,11 @@ Windows は各プロセスがメッセージを処理しあいながら、協調
 
 ## 応答なしにならないようにするには
 
-メッセージを処理すればいい。
-
-### メッセージを処理するには？
-
-アプリケーションで、メッセージ処理関数を呼び出すことで実現
-
-多くのフレームワークが、アプリケーションクラスの Run() メソッドがメッセージループを持つ。  
-また、モーダルダイアログ(MFCならDoModal, .NET なら、ShowDialog)も内部で独自のメッセージループを回している(APIも同様)
+継続的にメッセージを処理すればいい。
 
 #### 最もシンプルなメッセージループの例
+
+このような形で継続的にメッセージ処理を呼び出すことで実現できる
 
 ~~~cpp
 MSG msg;
@@ -48,18 +43,23 @@ while( GetMessage( &msg, nullptr, 0, 0 ) )
 }
 ~~~
 
+### メッセージを処理するには？
+
+アプリケーションで、継続的にメッセージ処理関数を呼び出すことで実現
+
+多くのフレームワークで、アプリケーションクラスの Run() メソッドにメッセージループと呼ばれるものがある。  
+また、モーダルダイアログ(API のDialogBox, MFCのDoModal, .NET の ShowDialog など)も内部で独自のメッセージループがある。
+
 ### アプリ内で一時的にメッセージループを回す場合は？
 
 .NET でいえば、DoEvents() を呼び出すことで強制的にメッセージを処理することが可能。  
-MFCにも類似の AfxPumpMessage というグローバル関数があるがちょっと癖があるので、ラップ関数を作るのが一般的
+MFCにも類似の AfxPumpMessage というグローバル関数があるがちょっと癖があるので、下記のようなラップ関数を作るのが一般的
 
 #### MFC 版 Appliation::DoEvents もどき
 
-以下の特性があるのでラップ関数を作って対応する
-
-MFCには実際のメッセージ処理を行ってくれる `AfxPumpMessage()` というまんまの名前のグローバル関数がある。  
-ただし、`GetMessage()` でメッセージを待ってしまうため、メッセージがないときに呼び出すと帰ってこない。  
-回避策として、呼び出し前にメッセージがあるかを確認することで呼び出し判定を行うことができる
+MFCで実際にメッセージ処理を行う `AfxPumpMessage()` というまんまの名前のグローバル関数がある。  
+ただし、この関数は `GetMessage()` でメッセージを待ってしまうため、メッセージがないときに呼び出すとメッセージが来るまで待機してしまう。  
+回避策は、呼び出し前にメッセージがあるかを確認することで呼び出し判定を行うことができる
 
 ~~~cpp
 BOOL CSampleAsyncWorkApp::DoEvents()
@@ -82,17 +82,17 @@ BOOL CSampleAsyncWorkApp::DoEvents()
 
 ### 本質じゃない部分
 
-* ダイアログアプリになっているので、WM_QUIT が処理されない＜ここ重要
+* ダイアログアプリになっているので、WM_QUIT での終了処理が存在しない
 * LVN_GETDISPINFO を使ってリストコントロールのメモリ消費量を低減
 * 画像処理は GDI+ で対応
 * 色数情報は、32bit カラーなので Gdiplus::ARGB を利用
 
 ### 管理してるデータ
 
-画像の色とその出現数があればいい  
--> `std::map<Gdiplus::ARGB,size_t>` でデータ管理。
+`std::map<Gdiplus::ARGB,size_t>` で色ごとの出現数をカウントできるようにしてある。  
+それ以上でもないがそれ以下でもない(出現数は表示していない)。
 
-### 画面表示部分
+### 画面表示部分(LVN_GETDISPINFOハンドラの内容)
 
 ~~~cpp
 void CSampleAsyncWorkDlg::OnGetdispinfoListCount( NMHDR* pNMHDR, LRESULT* pResult )
@@ -121,16 +121,18 @@ void CSampleAsyncWorkDlg::OnGetdispinfoListCount( NMHDR* pNMHDR, LRESULT* pResul
 
 CountColors というスタティック関数で実装
 
-ここが時間のかかる処理のコア部分  
-時間のかかる処理は大きく2つのループがある  
-一つは画像の画素そのものを読み取るところ  
-もう一つはリストにアイテムを追加するところ
+時間のかかる処理そのものとなっている。
 
 ##### プロトタイプ(CodeVer_Prototype)
 
 シンプルな実装  
 画素の読み取りと、リストへの追加をそれぞれ別々に行っている。  
-(ちなみに初期パラメータには、CWnd* pParent はない)
+
+本物の初期実装と異なる点(ソース変遷定義のために共通化された部分)
+
+1. 初期パラメータには CWnd* pParent はなかった
+1. LVITEM の宣言位置は、リストコントロールに追加する箇所にあった
+1. 一見するとよくわからない括弧がある
 
 ~~~cpp
 static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePath, std::map<Gdiplus::ARGB, size_t>& numColors )
@@ -148,9 +150,11 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
     // 初期化処理
     lc.DeleteAllItems();
     numColors.clear();
+
     // ファイルから読み込む
     Gdiplus::Bitmap bmp( imagePath );
     Gdiplus::BitmapData bmpData;
+
     if( bmp.LockBits( nullptr, Gdiplus::ImageLockModeRead, PixelFormat32bppARGB, &bmpData ) == Gdiplus::Ok )
     {
       const BYTE* imageTop = static_cast<const BYTE*>(bmpData.Scan0);
@@ -199,8 +203,10 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
 
 #### リストへの追加も同時に処理するように変更(CodeVer_SyncInsertItem)
 
-ちょっとでかいと何やってるかよくわからないから改良しよう！  
-リストに追加を同時にやれば動きが見えるからわかりやすいんじゃないか？
+改良に至る外圧など。。。
+
+1. ちょっとでかいと何やってるかよくわからない！
+2. リストへの追加をリアルタイムに見せてほしい！
 
 ~~~cpp
 static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePath, std::map<Gdiplus::ARGB, size_t>& numColors )
@@ -270,9 +276,12 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
 
 #### メッセージポンプが必要だ(CodeVer_SimplePump)
 
-スクロールバーは出てくるけど何やってるかわからない！  
-わんくま掲示板で質問だ！(再描画されないんですが。。。という質問の9割がこれ)  
-メッセージを処理すればいいのか！(DoEventsを用意した！)
+作ってみたのだが。。。
+
+1. スクロールバーは出てくるだけで描画されない！
+    * わんくま掲示板で質問だ！(再描画されないんですが。。。という質問の9割がこれ)
+    * メッセージを処理すればいいらしい(前出の DoEvents に当たるものを用意)
+2. メッセージループを時々読んでやれば解決だ！
 
 ~~~cpp
 static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePath, std::map<Gdiplus::ARGB, size_t>& numColors )
@@ -341,9 +350,12 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
 
 #### 進捗状態を出そう(CodeVer_ModelessDlg)
 
-画像がでかくなると時間がかかるばっかりで何をやってるのかよくわからない  
-処理中に×ボタンを押しても終わらない(※ダイアログはWM_QUITの処理を持っていないため落ちないだけ)
-進捗ダイアログを出せばいいじゃない！
+バグに要望だと！？
+
+1. 処理中にダイアログを操作できてしまう
+   1. 画面終わるけどアプリが終了しない？
+1. 画像がでかくなると時間がかかるばっかりで何をやってるのかよくわからない
+1. あとどれくらいかかるのか表示してほしい！
 
 ~~~cpp
 static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePath, std::map<Gdiplus::ARGB, size_t>& numColors )
@@ -359,7 +371,6 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
   {
     AfxThrowResourceException();	// リソースありませんエラーでいいでしょう
   }
-  pParent->EnableWindow( FALSE );
   {
     // 前のデータを破棄
     lc.DeleteAllItems();
@@ -424,9 +435,8 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
 
 #### 非同期処理にしよう(CodeVer_AsyncWork)
 
-進捗ダイアログを握っていると、処理が止まる！
-反応の鈍さは改善した(ただし少し重くなった気がする)
-進捗出すようにしたら昔よりかなり時間がかかるようになってないか？(漠然とした感覚)
+1. プログレスダイアログを移動しようとしている間処理が止まる！
+    * 掲示板で質問した時に、スレッドアウトすればいいとか言われたよな？
 
 ~~~cpp
 static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePath, std::map<Gdiplus::ARGB, size_t>& numColors )
@@ -438,6 +448,8 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
   item.pszText = LPSTR_TEXTCALLBACK;
   // インジケータ付きダイアログ
   CProgressDlg dlg;
+
+  // 別のスレッド(タスクの処理は別スレッドで行われる)で処理する部分
   auto task = concurrency::create_task( [&]()
   {
     // 前のデータを破棄
@@ -468,15 +480,12 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
           if( itr != numColors.end() )
           {
             itr->second += 1;
-            if( itr->second % 100 == 0 )
-            {
-              LVFINDINFO findInfo;
-              findInfo.flags = LVFI_PARAM;
-              findInfo.lParam = lineTop[xPos];
-              int findNum = lc.FindItem( &findInfo );
-              _ASSERTE( findNum >= 0 );
-              lc.Update( findNum );
-            }
+            LVFINDINFO findInfo;
+            findInfo.flags = LVFI_PARAM;
+            findInfo.lParam = lineTop[xPos];
+            int findNum = lc.FindItem( &findInfo );
+            _ASSERTE( findNum >= 0 );
+            lc.Update( findNum );
           }
           else
           {
@@ -508,11 +517,19 @@ static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePat
 
 ### 今回未実装(CodeVer_Parallels)
 
-非同期にするだけでは時間の短縮にはならない  
-並列化が必要  
-実は、プロトタイプの考え方は実は間違っていなかった!
+1. インジケータで処理内容は見えるようになったけど遅くなってないか？
+1. 並列化ってやつをすればいいんじゃないか？
 
-どこを並列化するのがいいのか？
+もちろん実装してないだけで、並列化は可能です。  
+ただし、このコードは初期のプロトタイプで版でも並列化が困難です。
 
-懇親会までの、宿題にしたいと思います。
+## まとめ
 
+応答なしにならない方法はこれ以外にもあります。  
+今回の実装パターンは処理速度向上にはみじんも役に立っていません(計測するとわかりますが、遅くなっている)。  
+処理をバックグラウンドで行うという方法もあります。
+
+#### おまけ
+
+GDI+ のオブジェクトはスレッドセーフではありませんので注意しましょう  
+パフォーマンスを求める場合は計測しましょう
