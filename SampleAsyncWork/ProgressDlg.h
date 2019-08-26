@@ -41,10 +41,11 @@ private:
 	int m_lower;
 	int m_upper;
 	int m_step;
-	std::atomic<int> m_pos;	//	並列処理対応
+	int m_pos;
 	bool m_marqueeMode;
 	concurrency::cancellation_token_source m_cts;
 	concurrency::event m_exitWork;
+	//	モードレスダイアログ作成で参照されるオーナーウィンドウのハンドル
 	CWnd* m_pOwnerWnd;
 
 protected:

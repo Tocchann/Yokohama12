@@ -190,11 +190,11 @@ void CSampleAsyncWorkDlg::OnClickedButtonSelTargetpath()
 #define CodeVer_AsyncWork (ExecMode_Sync_InsertItem|ExecMode_Disp_ProgressDlg|ExecMode_Use_Task)
 
 //	実行バージョンのコード
-#define ExecVer CodeVer_Prototype
+//#define ExecVer CodeVer_Prototype
 //#define ExecVer CodeVer_SyncInsertItem
 //#define ExecVer CodeVer_SimplePump
 //#define ExecVer CodeVer_ModelessDlg
-//#define ExecVer CodeVer_AsyncWork
+#define ExecVer CodeVer_AsyncWork
 
 
 static void APIENTRY CountColors( CWnd* pParent, CListCtrl& lc, LPCTSTR imagePath, std::map<Gdiplus::ARGB, size_t>& numColors )
